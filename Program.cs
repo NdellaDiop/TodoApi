@@ -8,23 +8,16 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<TodoContext>(opt =>
     opt.UseInMemoryDatabase("TodoList"));
 
-// <snippet_UseSwagger>
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// Swagger activé dans tous les environnements
+app.MapOpenApi();
+app.UseSwaggerUi(options =>
 {
-    app.MapOpenApi();
-    app.UseSwaggerUi(options =>
-    {
-        options.DocumentPath = "/openapi/v1.json";
-    });
-}
-// </snippet_UseSwagger>
+    options.DocumentPath = "/openapi/v1.json";
+});
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
