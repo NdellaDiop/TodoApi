@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Models;
@@ -6,6 +7,7 @@ namespace TodoApi.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize] // Tous les endpoints nécessitent une authentification
 public class TodoItemsController : ControllerBase
 {
     private readonly TodoContext _context;
@@ -15,7 +17,7 @@ public class TodoItemsController : ControllerBase
         _context = context;
     }
 
-    // GET: api/TodoItems
+    // GET: accessible à tous les utilisateurs authentifiés
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TodoItemDTO>>> GetTodoItems()
     {
@@ -24,7 +26,6 @@ public class TodoItemsController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/TodoItems/5
     [HttpGet("{id}")]
     public async Task<ActionResult<TodoItemDTO>> GetTodoItem(long id)
     {
@@ -33,8 +34,28 @@ public class TodoItemsController : ControllerBase
         return ItemToDTO(todoItem);
     }
 
-    // PUT: api/TodoItems/5
+    // POST, PUT, DELETE : réservés aux admins
+    [HttpPost]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<TodoItemDTO>> PostTodoItem(TodoItemDTO todoDTO)
+    {
+        var todoItem = new TodoItem
+        {
+            IsComplete = todoDTO.IsComplete,
+            Name = todoDTO.Name
+        };
+
+        _context.TodoItems.Add(todoItem);
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(
+            nameof(GetTodoItem),
+            new { id = todoItem.Id },
+            ItemToDTO(todoItem));
+    }
+
     [HttpPut("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> PutTodoItem(long id, TodoItemDTO todoDTO)
     {
         if (id != todoDTO.Id) return BadRequest();
@@ -57,27 +78,8 @@ public class TodoItemsController : ControllerBase
         return NoContent();
     }
 
-    // POST: api/TodoItems
-    [HttpPost]
-    public async Task<ActionResult<TodoItemDTO>> PostTodoItem(TodoItemDTO todoDTO)
-    {
-        var todoItem = new TodoItem
-        {
-            IsComplete = todoDTO.IsComplete,
-            Name = todoDTO.Name
-        };
-
-        _context.TodoItems.Add(todoItem);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(
-            nameof(GetTodoItem),
-            new { id = todoItem.Id },
-            ItemToDTO(todoItem));
-    }
-
-    // DELETE: api/TodoItems/5
     [HttpDelete("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> DeleteTodoItem(long id)
     {
         var todoItem = await _context.TodoItems.FindAsync(id);
@@ -89,10 +91,8 @@ public class TodoItemsController : ControllerBase
         return NoContent();
     }
 
-    private bool TodoItemExists(long id)
-    {
-        return _context.TodoItems.Any(e => e.Id == id);
-    }
+    private bool TodoItemExists(long id) =>
+        _context.TodoItems.Any(e => e.Id == id);
 
     private static TodoItemDTO ItemToDTO(TodoItem todoItem) =>
         new TodoItemDTO
